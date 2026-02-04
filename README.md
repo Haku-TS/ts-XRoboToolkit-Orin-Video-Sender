@@ -1,57 +1,123 @@
 # XRoboToolkit-Orin-Video-Sender
-Video Previewer/Encoder/Sender on Nvidia Jetson Orin Platform
+Webcam Video Previewer/Encoder/Sender on Linux (x86_64 / aarch64).
 
-![Screenshot](Docs/screenshot.png)
-> Sender (Webcam): `./OrinVideoSender --preview --send --server 192.168.1.176 --port 12345`
+> Developed and tested using `Logitech HD Pro Webcam C920`.
 
-> Receiver (Video-Viewer): TCP - 192.168.1.176 - 12345 - 1280x720
+<table>
+<tr>
+<td><img src="docs/screenshot.jpg" width="400"/><br/><sub>Mono webcam (Available)</sub></td>
+<td><img src="docs/screenshot-stereo.jpg" width="400"/><br/><sub>Stereo webcam (Invisible as "visibleRatio = 0")</sub></td>
+</tr>
+</table>
+
+> Note: Press B button on right-hand controller to switch.
 
 ## Features
 
-- Support Webcam and ZED cameras
-- Preview
-- H264 Encoding (via GStreamer)
-- TCP/UDP sending w/ and w/o ASIO
+- Webcam capture via V4L2
+- Local video preview (`--preview`)
+- H.264 encoding via GStreamer (x264enc software encoder)
+- TCP video streaming (`--send`)
+- Remote control via TCP commands (`--listen`)
+  - Supports `OPEN_CAMERA` / `CLOSE_CAMERA` protocol commands
 
+## Prerequisites
 
-## How to
+- [Pixi](https://pixi.sh) package manager (recommended), or system-installed GStreamer
 
-- Setup necessary environment on Orin
+### Using Pixi (Recommended)
 
-- Build
+```bash
+pixi install
 ```
-# Update `Makefile` to choose the protocol [TCP/UDP], camera type [Webcam/ZED], w/ or w/o ASIO.
-# Default: TCP w/o asio.
 
-# install zmq
-sudo apt-get install libzmq3-dev
+This installs all dependencies (GStreamer, glib, x264, etc.) from conda-forge.
+
+### Using system packages (Debian/Ubuntu)
+
+```bash
+sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-x
+sudo usermod -aG video $USER  # then log out and back in
+```
+
+## Build
+
+```bash
+# Using Pixi
+pixi run build
+
+# Or directly
+pixi shell
 
 make
-
-./OrinVideoSender --help
-
-# Listen to coming command from VR, 192.168.1.153 is the Orin IP address
-# Add `--preview` to show the video on Orin if necessary 
-./OrinVideoSender --listen 192.168.1.153:13579
-
-# send the video stream to both VR via TCP and my own ubuntu via ZMQ
-./OrinVideoSender --listen 192.168.1.153:13579 --zmq tcp://*:5555
-
-# Direct send the video stream # 192.168.1.176 is the VR headset IP
-# Add `--preview` to show the video on Orin if necessary 
-./OrinVideoSender --send --server 192.168.1.176 --port 12345
 ```
 
-## One More Thing 
+## Usage
 
-- For software encoding ffmpeg, please refer to [RobotVisionTest](https://github.com/XR-Robotics/RobotVision-PC/tree/main/VideoTransferPC/RobotVisionTest).
+```bash
+./OrinVideoSender --help
+```
 
-> Note: Hardware ffmpeg encoding is not availalbe yet.
+### Preview only
 
-> Note: Jetson Multimedia API is not in use yet.
+```bash
+./OrinVideoSender --preview
+```
 
-- For encoded h264 stream receiver, please refer to [VideoPlayer](https://github.com/XR-Robotics/RobotVision-PC/tree/main/VideoTransferPC/VideoPlayer) [TCP Only].
+### Linux Firewall Issue
 
-- For a general video player, please refer to [Video-Viewer](https://github.com/XR-Robotics/XRoboToolkit-Native-Video-Viewer) [TCP/UDP].
+Allow port 12345 (send) and 13579 (listen)
+```bash
+sudo ufw allow 12345
+sudo ufw allow 13579
+```
 
-- The encoded h264 stream can be also played in [Unity-Client](https://github.com/XR-Robotics/XRoboToolkit-Unity-Client) [TCP Only].
+### Direct send (with optional preview)
+
+```bash
+# 192.168.0.46 is the receiver IP (Headset)
+./OrinVideoSender --send --server 192.168.0.46 --port 12345 --preview
+```
+
+### Listen mode (remote control)
+
+Waits for `OPEN_CAMERA` / `CLOSE_CAMERA` commands from a remote client (Headset).
+
+```bash
+# 192.168.0.20:13579 is the address to listen on (where the camera connects and the target ip address input in headset.)
+./OrinVideoSender --listen 192.168.0.20:13579
+./OrinVideoSender --listen 192.168.0.20:13579 --preview
+```
+
+## Copy Config File
+
+- Download `video_source.yml` file
+
+- PICO Headset
+
+```bash
+adb push video_source.yml /sdcard/Android/data/com.xrobotoolkit.client/files/
+```
+
+- Quest Headset
+
+```bash
+adb push video_source.yml /sdcard/Android/data/com.xrobotoolkit.client.quest/files/
+```
+
+- Run the Unity Client in Headset
+
+## Default Webcam Resolutions (C920)
+
+| Resolution | FPS | Notes   |
+| ---------- | --- | ------- |
+| 1280x720   | 30  | Default |
+
+## Related Projects
+
+- [Video-Viewer](https://github.com/XR-Robotics/XRoboToolkit-Native-Video-Viewer) - H.264 stream receiver [TCP/UDP]
+- [VideoPlayer](https://github.com/XR-Robotics/RobotVision-PC/tree/main/VideoTransferPC/VideoPlayer) - H.264 stream receiver [TCP Only]
+- [Unity-Client](https://github.com/XR-Robotics/XRoboToolkit-Unity-Client) - Unity H.264 stream receiver [TCP Only]
+- [Unity-Client-Quest](https://github.com/XR-Robotics/XRoboToolkit-Unity-Client-Quest) - Unity H.264 stream receiver [TCP Only]
+- [RobotVisionTest](https://github.com/XR-Robotics/RobotVision-PC/tree/main/VideoTransferPC/RobotVisionTest) - FFmpeg software encoding reference
