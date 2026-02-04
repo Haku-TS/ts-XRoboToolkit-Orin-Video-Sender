@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "network_helper.hpp"
+#include "include/network_helper.hpp"
 
 std::unique_ptr<TCPClient> sender_ptr;
 GMainLoop *loop = nullptr;
@@ -131,26 +131,30 @@ int main(int argc, char *argv[]) {
 
   std::string pipeline_desc;
 
-  if (preview_enabled) {
+  if (preview_enabled && send_enabled) {
     pipeline_desc =
         "v4l2src device=/dev/video0 ! "
         "video/x-raw,width=1280,height=720 ! "
-        "videoconvert ! "
-        "nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
+        "videoconvert ! video/x-raw,format=I420 ! "
         "tee name=t "
-        "t. ! queue ! nvv4l2h264enc maxperf-enable=1 bitrate=4000000 ! "
-        "h264parse ! appsink name=mysink emit-signals=true sync=false "
-        "t. ! queue ! nvvidconv ! video/x-raw ! videoconvert ! autovideosink "
-        "sync=false";
+        "t. ! queue ! x264enc tune=zerolatency bitrate=4000 speed-preset=ultrafast ! "
+        "appsink name=mysink emit-signals=true sync=false "
+        "t. ! queue ! videoconvert ! ximagesink sync=false";
+  } else if (preview_enabled) {
+    pipeline_desc =
+        "v4l2src device=/dev/video0 ! "
+        "video/x-raw,width=1280,height=720 ! "
+        "videoconvert ! ximagesink sync=false";
   } else {
     pipeline_desc =
         "v4l2src device=/dev/video0 ! "
         "video/x-raw,width=1280,height=720 ! "
-        "videoconvert ! "
-        "nvvidconv ! "
-        "nvv4l2h264enc maxperf-enable=1 bitrate=4000000 ! "
-        "h264parse ! appsink name=mysink emit-signals=true sync=false";
+        "videoconvert ! video/x-raw,format=I420 ! "
+        "x264enc tune=zerolatency bitrate=4000 speed-preset=ultrafast ! "
+        "appsink name=mysink emit-signals=true sync=false";
   }
+
+  g_print("Pipeline: %s\n", pipeline_desc.c_str());
 
   GError *error = nullptr;
   GstElement *pipeline = gst_parse_launch(pipeline_desc.c_str(), &error);
@@ -159,17 +163,32 @@ int main(int argc, char *argv[]) {
     g_clear_error(&error);
     return -1;
   }
+  if (error) {
+    g_printerr("Pipeline warning: %s\n", error->message);
+    g_clear_error(&error);
+  }
 
-  GstElement *sink = gst_bin_get_by_name(GST_BIN(pipeline), "mysink");
-  if (!sink) {
-    g_printerr("Failed to get appsink element\n");
+  GstElement *sink = nullptr;
+  if (send_enabled) {
+    sink = gst_bin_get_by_name(GST_BIN(pipeline), "mysink");
+    if (!sink) {
+      g_printerr("Failed to get appsink element\n");
+      gst_object_unref(pipeline);
+      return -1;
+    }
+    g_signal_connect(sink, "new-sample", G_CALLBACK(on_new_sample), nullptr);
+  }
+
+  GstStateChangeReturn ret =
+      gst_element_set_state(pipeline, GST_STATE_PLAYING);
+  if (ret == GST_STATE_CHANGE_FAILURE) {
+    g_printerr("Failed to set pipeline to PLAYING state\n");
     gst_object_unref(pipeline);
+    if (sink)
+      gst_object_unref(sink);
     return -1;
   }
 
-  g_signal_connect(sink, "new-sample", G_CALLBACK(on_new_sample), nullptr);
-
-  gst_element_set_state(pipeline, GST_STATE_PLAYING);
   g_print("Capturing and encoding... Press Ctrl+C to stop.\n");
 
   loop = g_main_loop_new(nullptr, FALSE);
@@ -184,7 +203,8 @@ int main(int argc, char *argv[]) {
   gst_element_send_event(pipeline, gst_event_new_eos());
   gst_element_set_state(pipeline, GST_STATE_NULL);
   gst_object_unref(pipeline);
-  gst_object_unref(sink);
+  if (sink)
+    gst_object_unref(sink);
   g_main_loop_unref(loop);
   loop = nullptr;
 
