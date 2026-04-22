@@ -377,10 +377,12 @@ void handleOpenCamera(const std::vector<uint8_t> &data) {
               << ", Bitrate: " << cameraConfig.bitrate
               << ", IP: " << cameraConfig.ip << ", Port: " << cameraConfig.port
               << ", type: " << cameraConfig.camera << std::endl;
-    // Do nothing if the type is not "WEB"
-    if (cameraConfig.camera != "WEB") {
+    // Do nothing if the type is not "WEB/RealSense/Insta360"
+    if (cameraConfig.camera != "WEB" && cameraConfig.camera != "RealSense" &&
+        cameraConfig.camera != "Insta360") {
       std::cout << "Unsupported camera type: " << cameraConfig.camera
-                << ". Only 'WEB' is supported." << std::endl;
+                << ". Only 'WEB', 'RealSense', 'Insta360' are supported."
+                << std::endl;
       return;
     }
 

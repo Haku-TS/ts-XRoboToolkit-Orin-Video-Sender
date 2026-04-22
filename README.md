@@ -24,6 +24,10 @@ Webcam Video Previewer/Encoder/Sender on Linux (x86_64 / aarch64).
 ## Prerequisites
 
 - [Pixi](https://pixi.sh) package manager (recommended), or system-installed GStreamer
+```bash
+curl -fsSL https://pixi.sh/install.sh | bash
+source ~/.bashrc
+```
 
 ### Using Pixi (Recommended)
 
@@ -49,7 +53,6 @@ pixi run build
 
 # Or directly
 pixi shell
-
 make
 ```
 
