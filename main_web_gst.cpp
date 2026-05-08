@@ -187,6 +187,22 @@ std::unique_ptr<T> make_unique_helper(Args &&...args) {
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
+// NEW: Define camera profiles
+struct CameraProfile {
+  std::string name;
+  std::string pipeline_src;
+};
+
+// NEW: Hardcoded camera configurations
+const std::vector<CameraProfile> camera_profiles = {
+    {"mono", "v4l2src device=/dev/video0 ! video/x-raw,width=1280,height=720 ! "
+             "videoconvert ! video/x-raw,format=I420 ! "},
+    {"stereo", "v4l2src device=/dev/video0 ! "
+            "image/jpeg,width=2560,height=720,framerate=30/1 ! jpegdec ! "
+            "videoconvert ! video/x-raw,format=I420 ! "},
+    // Insta360 can be added here later
+};
+
 // Global camera configuration
 CameraRequestData current_camera_config;
 
@@ -465,26 +481,46 @@ void streamingThreadFunction() {
       config = current_camera_config;
     }
 
-    // Build pipeline string for webcam with x264enc
+    // Build pipeline string for webcam
     std::string pipeline_desc;
-    std::string src = "v4l2src device=/dev/video0 ! "
-                      "video/x-raw,width=" +
-                      std::to_string(config.width) +
-                      ",height=" + std::to_string(config.height) + " ! "
-                      "videoconvert ! video/x-raw,format=I420 ! ";
+
+    // IMPORTANT: Select the source pipeline based on the chosen camera type
+    std::string src;
+    bool found_camera = false;
+    for (const auto &profile : camera_profiles) {
+      if (profile.name == config.camera) {
+        src = profile.pipeline_src;
+        found_camera = true;
+        break;
+      }
+    }
+
+    if (!found_camera) {
+      g_printerr("Error: Unknown camera type '%s' specified.\n",
+                 config.camera.c_str());
+      return;
+    }
+
+    std::string encoder_str;
+#ifdef USE_NV_HW_ENCODER
+    // Use NVIDIA hardware encoder
+    // Note: nvv4l2h264enc bitrate is in bps, config.bitrate is in kbps
+    encoder_str = "nvvidconv ! nvv4l2h264enc preset-level=4 bitrate=" + std::to_string(config.bitrate * 1000) + " ! ";
+#else
+    // Use software encoder
+    encoder_str = "x264enc tune=zerolatency bitrate=" +
+                  std::to_string(config.bitrate) +
+                  " speed-preset=ultrafast ! ";
+#endif
 
     if (preview_enabled.load()) {
       pipeline_desc =
           src + "tee name=t "
-                "t. ! queue ! x264enc tune=zerolatency bitrate=" +
-          std::to_string(config.bitrate) +
-          " speed-preset=ultrafast ! "
+                "t. ! queue ! " + encoder_str +
           "appsink name=mysink emit-signals=true sync=false "
           "t. ! queue ! videoconvert ! ximagesink sync=false";
     } else {
-      pipeline_desc = src + "x264enc tune=zerolatency bitrate=" +
-                      std::to_string(config.bitrate) +
-                      " speed-preset=ultrafast ! "
+      pipeline_desc = src + encoder_str +
                       "appsink name=mysink emit-signals=true sync=false";
     }
 
@@ -581,6 +617,7 @@ int main(int argc, char *argv[]) {
   std::string listen_address = "";
   std::string server_ip = "127.0.0.1";
   int server_port = 12345;
+  std::string camera_type = "mono"; // Default camera
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -595,22 +632,31 @@ int main(int argc, char *argv[]) {
       server_ip = argv[++i];
     } else if (arg == "--port" && i + 1 < argc) {
       server_port = std::stoi(argv[++i]);
+    } else if (arg == "--camera" && i + 1 < argc) {
+      camera_type = argv[++i];
     } else if (arg == "--help") {
       std::cout << "Usage: " << argv[0] << " [options]\n";
       std::cout << "Options:\n";
-      std::cout << "  --preview      Enable video preview\n";
-      std::cout << "  --listen ADDR  Listen for control commands on address "
-                   "(IP:PORT)\n";
-      std::cout << "  --send         Send video stream directly to server\n";
-      std::cout
-          << "  --server IP    Server IP address (default: 127.0.0.1)\n";
-      std::cout << "  --port PORT    Server port (default: 12345)\n";
-      std::cout << "  --help         Show this help message\n";
+      std::cout << "  --preview          Enable video preview\n";
+      std::cout << "  --listen ADDR      Listen for control commands on "
+                   "address (IP:PORT)\n";
+      std::cout << "  --send             Send video stream directly to server\n";
+      std::cout << "  --server IP        Server IP address (default: "
+                   "127.0.0.1)\n";
+      std::cout << "  --port PORT        Server port (default: 12345)\n";
+      std::cout << "  --camera TYPE      Camera type to use: mono, stereo "
+                   "(default: mono)\n";
+      std::cout << "  --help             Show this help message\n";
       return 0;
     }
   }
 
   preview_enabled.store(preview_enabled_local);
+
+  // Set camera type for direct send mode
+  if (send_enabled_mode) {
+    current_camera_config.camera = camera_type;
+  }
 
   // Preview-only mode: simple pipeline, no threading needed
   if (preview_enabled_local && !send_enabled_mode && !listen_enabled) {

@@ -11,9 +11,17 @@ APP := OrinVideoSender
 SRCS := main_web_gst.cpp
 OBJS := $(SRCS:.cpp=.o)
 
+# Build flags
+USE_NV_HW_ENCODER ?= 0
+
 # Include paths
 CPPFLAGS := -std=c++11 \
 	$(shell pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 glib-2.0)
+
+# Add hardware encoder flag if enabled
+ifeq ($(USE_NV_HW_ENCODER),1)
+	CPPFLAGS += -DUSE_NV_HW_ENCODER
+endif
 
 # Compiler flags
 CXXFLAGS := -Wall -Wextra -O2 -g
@@ -24,6 +32,9 @@ LDFLAGS := \
 	-lpthread
 
 all: $(APP)
+
+orin:
+	$(MAKE) all USE_NV_HW_ENCODER=1
 
 debug: CXXFLAGS += -DDEBUG -g3 -O0
 debug: $(APP)
@@ -43,4 +54,4 @@ install: $(APP)
 	@echo "Installing $(APP)..."
 	install -D $(APP) /usr/local/bin/$(APP)
 
-.PHONY: all debug clean install
+.PHONY: all orin debug clean install

@@ -21,40 +21,38 @@ Webcam Video Previewer/Encoder/Sender on Linux (x86_64 / aarch64).
 - Remote control via TCP commands (`--listen`)
   - Supports `OPEN_CAMERA` / `CLOSE_CAMERA` protocol commands
 
-## Prerequisites
+## Install and Build
 
-- [Pixi](https://pixi.sh) package manager (recommended), or system-installed GStreamer
+### On PC
+- [Pixi](https://pixi.sh) package manager recommended
 ```bash
 curl -fsSL https://pixi.sh/install.sh | bash
 source ~/.bashrc
-```
-
-### Using Pixi (Recommended)
-
-```bash
 pixi install
 ```
 
 This installs all dependencies (GStreamer, glib, x264, etc.) from conda-forge.
+Then build using:
 
-### Using system packages (Debian/Ubuntu)
+```bash
+pixi run clean && pixi run build
+```
+
+### On G1
+- Using system packages
 
 ```bash
 sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-x
 sudo usermod -aG video $USER  # then log out and back in
 ```
-
-## Build
+Then build using:
 
 ```bash
-# Using Pixi
-pixi run build
-
-# Or directly
-pixi shell
-make
+make clean && make orin
 ```
+
+
 
 ## Usage
 
@@ -76,12 +74,23 @@ sudo ufw allow 12345
 sudo ufw allow 13579
 ```
 
-### Direct send (with optional preview)
+### Direct send 
 
 ```bash
 # 192.168.0.46 is the receiver IP (Headset)
+
+# On PC (with optional preview)
+./OrinVideoSender --send --server 192.168.0.46 --port 12345 --preview --camera mono
+# or (default camera typeis mono)
 ./OrinVideoSender --send --server 192.168.0.46 --port 12345 --preview
+
+# On G1, do not use --preview
+./OrinVideoSender --send --server 192.168.0.46 --port 12345  --camera stereo
 ```
+
+- Note: The B button on right-hand controller to switch vision mode:
+- when --camera mono, show or hide the preview window.
+- when --camera stereo, enable or disable the VR view.
 
 ### Listen mode (remote control)
 
@@ -100,14 +109,9 @@ Waits for `OPEN_CAMERA` / `CLOSE_CAMERA` commands from a remote client (Headset)
 - PICO Headset
 
 ```bash
-adb push video_source.yml /sdcard/Android/data/com.xrobotoolkit.client/files/
+adb push video_source.yml /sdcard/Android/data/com.tsxrobotoolkit.client/files/
 ```
 
-- Quest Headset
-
-```bash
-adb push video_source.yml /sdcard/Android/data/com.xrobotoolkit.client.quest/files/
-```
 
 - Run the Unity Client in Headset
 
