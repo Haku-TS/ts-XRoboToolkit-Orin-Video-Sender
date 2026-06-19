@@ -43,7 +43,7 @@ pixi run clean && pixi run build
 
 ```bash
 sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-x
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-x ufw
 sudo usermod -aG video $USER  # then log out and back in
 ```
 Then build using:
