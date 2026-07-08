@@ -38,44 +38,6 @@
       value: 4000000
 
 
-- name: "I360"
-  camera: "Insta360"
-  description: "Insta360 Panoramic Video Stream Source"
-  properties:
-    - name: "visibleRatio"
-      type: "float"
-      description: "Visible ratio for the shader"
-      value: 0.0 # Invisible
-    - name: "contentRatio"
-      type: "float"
-      description: "Content ratio for the shader"
-      value: 0.5
-    - name: "heightCompressionFactor"
-      type: "float"
-      description: "Height compression factor for the shader"
-      value: 1.777778 # 16/9
-    - name: "RawImageRectSize"
-      type: "string"
-      description: "Size of the RawImage rectangle for the stereo view"
-      value: "640x360" # Same ratio as 1280x720
-    - name: "CamWidth"
-      type: "int"
-      description: "Camera width for the video stream"
-      value: 1280
-    - name: "CamHeight"
-      type: "int"
-      description: "Camera height for the video stream"
-      value: 720
-    - name: "CamFPS"
-      type: "int"
-      description: "Frame rate of the video stream in FPS"
-      value: 30
-    - name: "CamBitrate"
-      type: "int"
-      description: "Bitrate of the video stream in bps"
-      value: 1000000
-
-
 - name: "Mono"
   camera: "WEB"
   description: "Logitech HD Pro Webcam C920 Stream Source"

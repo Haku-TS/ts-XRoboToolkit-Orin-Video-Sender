@@ -198,7 +198,10 @@ const std::vector<CameraProfile> camera_profiles = {
     {"mono", "v4l2src device=/dev/video0 ! video/x-raw,width=1280,height=720 ! "
              "videoconvert ! video/x-raw,format=I420 ! "},
     {"stereo", "v4l2src device=/dev/video0 ! "
-            "image/jpeg,width=2560,height=720,framerate=30/1 ! jpegdec ! "
+//            "image/jpeg,width=3840,height=1080,framerate=30/1 ! jpegdec ! "
+            "image/jpeg,width=2560,height=720,framerate=60/1 ! jpegdec ! "
+//            "image/jpeg,width=1600,height=600,framerate=60/1 ! jpegdec ! "
+//            "image/jpeg,width=1280,height=480,framerate=60/1 ! jpegdec ! "
             "videoconvert ! video/x-raw,format=I420 ! "},
     // Insta360 can be added here later
 };
